@@ -46,7 +46,7 @@ And finally, fifth, Deluge is a flopping piece of sh#t that crashes constantly w
 
 # Why did you choose to use external file servers, especially Windows ones?
 
-Three main reasons, really.  One, that I believe storage should stand alone, siloed and inviolate, unsullied by the brazen code that calls itself an application.  Just on general principle.  And also because my NAS may be homebuilt, but it's not at all like the petabytes of storage in my office datacenter.
+Three main reasons, really.  One, that I believe storage should stand alone, siloed and inviolate, unsullied by the brazen code that calls itself an application.  Just on general principle.  And also because my NAS may be homebuilt, but it's not at all unlike the petabytes of storage in my office datacenter.
 
 Second, I utilize many applications which access those files, some Active Directory aware, some LDAP aware, and some not at all.  I find it much easier to use AD's nested grouping and permissions structures than Linux's kludgy half-ass attempts at LDAP implementation.
 
