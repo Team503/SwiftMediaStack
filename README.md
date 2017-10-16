@@ -8,6 +8,7 @@ A fully functional Plex environment, including automatic content downloading and
 * Plex Media Server
 * Automated downloading and file handling of movies, television shows, and music via Usenet and Torrents
 * User-friendly GUI for viewers to request new content and report issues
+* Reverse proxy server with SSL to allow external access
 
 # What's Actually In These Instructions?
 
@@ -25,6 +26,10 @@ First you'll install Docker Project's Docker Community Edition, which you'll nee
 * NZBget for Usenet groups
 * Hydra and Jackett for additional indexer support
 * MusicBrainz for indexing music to support headphones
+
+Running standalone is:
+
+* Nginx for reverse proxy and certbot for Let's Encrypt support
 
 The instructions all are designed to run with Ubuntu 16.04 LTS, but can probably work with most any distro with only minor changes.
 
@@ -72,7 +77,7 @@ I may even eventually expand this project to be a fully functional home producti
 
 # So What Do I ACTUALLY DO
 
-* Stand up three Ubuntu 16.04 LTS virtual machines
+* Stand up four Ubuntu 16.04 LTS virtual machines
 * Configure each with an encrypted home directory
 * Set up a user with the appropriate permissions (if you're lazy and don't mind being insecure, just use the one created during the Ubuntu install process)
 
@@ -81,6 +86,7 @@ I recommend the following specs for each VM.  This is variable - you can add or 
 *MusicBrainz* - 2CPU 1GB RAM 20gb HDD  
 *Plex* - 4CPU 4GB RAM 20gb HDD + enough space for your library cache (varies wildly depending on size of library)  
 *Seedbox* - 2CPU 8GB RAM 20gb HDD + a dedicated, single platter, nothing-else-uses-it scratch disk of any size (note that Deluge will absolutely shit itself if this disk is full, so mind your settings!).  This guy gets RAM because he does a LOT at once, especially during release heavy days.  
+*PROXY* - 1CPU 1GB RAM 16gb HDD
 
 If you're using ESX, I strongly recommend:
 
@@ -94,7 +100,7 @@ If you're using ESX, I strongly recommend:
 * Will sign up for a Github and do that soon - maybe today or tomorrow
 * Will update with OpenVPN instructions soon
 * Taking requests for additional stuff
-
+* Moving NGINX to a Docker is my next trick
 
 # Special Thanks
 
