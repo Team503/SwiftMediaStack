@@ -1,0 +1,116 @@
+######################################################################################
+# These instructions are for installing NGINX on an Ubuntu LTS 16.04 server
+# They include installing OpenSSH for remote connectivity and enabling and
+# configuring the onboard UFW firewall.
+# 
+# Use at your own risk, created by Team503 (2017)
+# Intended for use with Ubuntu LTS 16.04
+# 
+# Last Edited 28 SEPT 2017
+######################################################################################
+
+# Configure your network interface
+sudo nano /etc/network/interfaces
+
+# Update the apt package index
+sudo apt-get update
+
+# Install OpenSSH-server so you can use PuTTy to connect
+sudo apt-get install openssh-server
+
+# View UFW allowed application list
+sudo ufw app list
+
+# Configure firewall rules, and make sure to change the network and netmask 
+# to match your local configuration
+
+# If OpenSSH isn't listed, add it
+# Make sure to update your network and netmask!
+sudo ufw allow in on ens192 from 192.168.1.0/24 to any port 22
+
+
+# Enable the UFW firewall
+sudo ufw enable
+
+logout
+
+# Connect via PuTTy here, or troubleshoot any firewall rules needed from the console
+
+# Install NGINX
+sudo apt-get install nginx
+
+# Adjust the firewall to NGINX traffic - remove the # from whichever line fits your
+# needs.  Full allows both HTTP and HTTPS.  Restart UFW when done.
+sudo ufw allow 'Nginx Full'
+#sudo ufw allow 'Nginx HTTP'
+#sudo ufw allow 'Nginx HTTPS'
+
+# Reload the firewall now that changes have been made, then view UFW allowed 
+# application list and verify that it matches your expected results
+sudo ufw reload
+sudo ufw status numbered
+
+# Check the status of NGINX and make sure its running (start if not)
+systemctl status nginx
+
+# Now, copy or create the CONF files in /etc/nginx/sites-available
+# A good guide at https://www.linode.com/docs/web-servers/nginx/how-to-configure-nginx
+#
+# This isn't optional - this is the actual configuration of the reverse proxy!
+#
+# Or you can use the included sample configuration files and edit them on your workstation
+# Then copy them up by WinSCP to your /home/username/ directory
+cd /etc/nginx/sites-available
+sudo cp /home/username/*.conf .
+
+# Now create symbolic links from the sites-available to the sites-enabled
+#
+# You could copy them instead, but this way you only have to keep up with one
+# set of files
+sudo ln -s /etc/nginx/sites-available/*.conf /etc/nginx/sites-enabled/
+
+# Then stop and then start the NGINX service again to load the new CONF files
+sudo systemctl restart nginx
+
+# Now that NGINX is configured, let's turn our attention to Certbot
+# 
+# Install the repository 
+sudo add-apt-repository ppa:certbot/certbot
+
+# Update the apt repository
+sudo apt-get update
+
+# Install Certbot
+sudo apt-get install python-certbot-nginx
+
+# You need a valid SSL cert, so let's use certbot to get that with the NGINX plugin
+# Each domain you list needs to have a server_name variable in a site.CONF 
+# loaded into NGINX or you'll get an error and fail the certificate generation
+sudo certbot --nginx -d example.com -d subdomain.example.com
+
+# If that's successful, certbot will ask how you'd like to configure your HTTPS settings
+# Selecting 1 will leave your site.conf files alone, and 2 will edit them to force HTTPS
+# on all ports.
+#
+# If you've only configured your website.confs to work on port 80, go ahead and choose 2
+# but if you're already set up 443/SSL on some, I recommend you choose 1 and make the conf
+# changes manually.
+
+# Next, we're going to tighten up our security by using stricter Diffie-Hellman parameters
+sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
+
+# This will take a while, up to a few minutes. When it's done, open up the Nginx config 
+# file that contains your server block and paste this in 
+# "ssl_dhparam /etc/ssl/certs/dhparam.pem;" without quotes.
+sudo nano /etc/nginx/sites-available/sitename.conf
+
+# Now we're setting up auto-renew
+sudo crontab -e
+
+# You'll be prompted to choose your text editor of choice.  I use nano, you can use
+# whatever you want.
+#
+# Now add the following line to auto-renew via certbot at 5:15am every day
+# 15 5 * * * /usr/bin/certbot renew --quiet
+
+# Exit your text editor saving changes and you're done!
