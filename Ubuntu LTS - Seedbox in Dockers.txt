@@ -1,0 +1,318 @@
+######################################################################################
+# These instructions are for installing Docker to containerize applications,
+# CIFS to mount a windows share, editing the FSTAB to mount the share
+# then installing the Radarr, Sonarr, Deluge, Headphones, OMBI, NZBget, NZBHydra, 
+# Jackett, and MuxiMux Docker containers provided by LinuxServer.IO
+#
+# These instructions assume that you are a novice Linux user, but NOT a novice
+# computer user, and that you have accepted all the defaults during the Ubuntu 
+# installation process.
+#
+# System Requirements:
+#
+# 2 CPU
+# 8GB RAM, 12GB recommended
+# 20gb HDD
+#
+# These instructions assume your media is saved on the root share \\servername\share 
+# and you want to map it to media/servername on the host and /data/servername in the
+# container rather than locally to the seedbox.  This leaves setting the appropriate
+# folders in the application easy.
+# 
+# e.g., \\fileserver\root-share\movies\mymovie.mkg
+# e.g., \\fileserver\root-share\tv\myshow\season01\episode.mkv
+# e.g., \\fileserver\root-share\music\artist\album\song.mp3
+# 
+# It also assumes that you're using a separate drive as a scratch drive for torrents
+# and/or newsgroups, and that it is mounted to /dev/
+# 
+# Change the paths accordingly as necessary.  Find/Replace key:
+# DEVICE-ID = Device ID of the scratch hard drive (usually "sdb1", no quotes)
+# username = Ubuntu username specified during install
+# server01 = Name of first file server
+# server02 = Name of second file server
+# share01 = Name of the shared folder on the first file server
+# share02 = Name of the shared folder on the second file server
+# msusername = username with access to file servers
+# mspassword = password of username with access to file servers
+# scratchdisk = the name for the mount of your scratch disk
+# 
+# Use at your own risk, created by Alex Cherry (2017)
+# Intended for use with Docker Project's Docker Community Edition, Ubuntu LTS 16.04
+# 
+# Last Edited 27 SEPT 2017
+######################################################################################
+
+# Configure your network interface
+sudo nano /etc/network/interfaces
+
+# Restart for new network settings to take effect
+sudo shutdown -r now
+
+# Install OpenSSH-server so you can use PuTTy to connect
+sudo apt-get install openssh-server
+logout
+
+#Connect via PuTTy here
+
+# Update the apt package index
+sudo apt-get update
+
+# Install the linux-image-extra-* packages, which allow Docker to use the aufs 
+# storage drivers
+sudo apt-get install \
+  linux-image-extra-$(uname -r) \
+  linux-image-extra-virtual
+
+# Update the apt package index
+sudo apt-get update
+
+# Install packages to allow apt to use a repository over HTTPS
+sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    software-properties-common
+
+# Add Docker’s official GPG key
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# Verify that you now have the key with the fingerprint 9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88,
+# by searching for the last 8 characters of the fingerprint
+sudo apt-key fingerprint 0EBFCD88
+
+# set up the stable repository for AMD64 code
+sudo add-apt-repository \
+   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+   $(lsb_release -cs) \
+   stable"
+
+# Now update the apt package index, then install the latest docker-ce and cifs-utils
+sudo apt-get update
+sudo apt-get install docker-ce
+sudo apt-get install cifs-utils
+
+# Show device info to findout your scratch hard disk's ID - look for "logical name"
+# in the output, you'll use that as the DEVICE-ID in the fstab file below, will
+# almost always be "sdb"
+sudo lshw -C disk
+
+# Launch fdisk to partition the scratch disk
+sudo fdisk /dev/LOGICALNAME 
+
+# Choose "n" for a new partition, "p" for a primary partition, "1" for the parition
+# number, theh choose option "w" to write the partition table to the disk
+
+# Now format that disk, making the DEVICE-ID by adding LOGICALNAME and the parition
+# number.  Most often, this is "sdb1"
+sudo mkfs -t ext3 /dev/DEVICE-ID
+
+# Create your credentials file to connect to your file server(s)
+# Note that you can create as many as needed if your servers have require
+# different usernames and/or passwords, just increment the name
+sudo nano /home/username/.smbcredentials01
+sudo nano /home/username/.smbcredentials02
+
+# Enter your Windows username and password in the file by inserting the text
+username=msusername
+password=mspassword
+
+# CTRL-X to get out of NANO, follow prommpts to save
+
+# Create the directories in the /media directory to mount your Windows shares to
+# Note that you can create and name these whatever you want, and you should make as 
+# many as you need to mount all your shares
+sudo mkdir /media/server01
+sudo mkdir /media/server02
+sudo mkdir /media/scratchdisk
+
+# Edit the FSTAB file to mount your shares.
+sudo nano /etc/fstab
+
+# Insert these lines at the end of /etc/fstab
+//server01/share01 /media/server01 cifs credentials=/home/username/.smbcredentials01,iocharset=utf8,noperm,sec=ntlm 0 0 
+//server02/share02 /media/server02 cifs credentials=/home/username/.smbcredentials02,iocharset=utf8,noperm,sec=ntlm 0 0 
+/dev/DEVICE-ID	/media/scratchdisk	ext3	defaults	0	2
+
+# CTRL-X to get out of NANO, follow prommpts to save
+
+# Mount the drives
+sudo mount -a
+
+# Test the mounts, assuming you got no errors
+cd /media/server01
+ls -l
+cd /media/server02
+ls -l
+cd /
+
+#
+# SUPER IMPORTANT - IF YOU NEED TO FIX YOUR MOUNTS DO SO NOW - PLEX AND PLEXPY REQUIRE THEM TO WORK
+#
+
+# Now update the apt package index, check for any system upgrades, then restart the machine
+sudo apt-get update
+sudo apt-get upgrade
+sudo shutdown -r now
+
+# Copy from here down to upgrade all your dockers to the latest
+# 
+# Stop the Dockers
+sudo docker stop sonarr
+sudo docker stop radarr
+sudo docker stop deluge
+sudo docker stop ombi
+sudo docker stop headphones
+sudo docker stop nzbget
+sudo docker stop hydra
+sudo docker stop jackett
+sudo docker stop muximux
+
+# Delete existing Dockers
+sudo docker rm sonarr
+sudo docker rm radarr
+sudo docker rm deluge
+sudo docker rm ombi
+sudo docker rm headphones
+sudo docker rm nzbget
+sudo docker rm hydra
+sudo docker rm jackett
+sudo docker rm muximux
+
+# After restart, have Docker download the Plex and PlexPy images
+sudo docker pull linuxserver/sonarr
+sudo docker pull linuxserver/radarr
+sudo docker pull linuxserver/deluge
+sudo docker pull linuxserver/ombi
+sudo docker pull linuxserver/headphones
+sudo docker pull linuxserver/nzbget
+sudo docker pull linuxserver/hydra
+sudo docker pull linuxserver/jackett
+sudo docker pull linuxserver/muximux
+
+# Create the actual Dockers
+# Note that you can actually change all the folders, the format is simple
+# /hostmachine/source/path:/path-inside-docker
+# You can add a :ro at the end of that to make it a read-only share
+
+sudo docker create \
+--name=sonarr \
+--restart=always \
+-p 8989:8989 \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /dev/rtc:/dev/rtc:ro \
+-v /home/docker/sonarr/config:/config \
+-v /media/dfwpfs01:/data/dfwpfs01 \
+-v /media/dfwpfs02:/data/dfwpfs02 \
+-v /media/2tb:/data/2tb \
+linuxserver/sonarr
+
+sudo docker create \
+--name=radarr \
+--restart=always \
+-p 7878:7878 \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /etc/localtime:/etc/localtime:ro \
+-v /home/docker/radarr/config:/config \
+-v /media/dfwpfs01:/data/dfwpfs01 \
+-v /media/dfwpfs02:/data/dfwpfs02 \
+-v /media/2tb:/data/2tb \
+linuxserver/radarr
+
+sudo docker create \
+--name deluge \
+--restart=always \
+--net=host \
+-e UMASK_SET=022 \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /etc/localtime:/etc/localtime:ro \
+-v /home/docker/deluge/config:/config \
+-v /media/dfwpfs01:/data/dfwpfs01 \
+-v /media/dfwpfs02:/data/dfwpfs02 \
+-v /media/2tb:/data/2tb \
+linuxserver/deluge
+
+sudo docker create \
+--name=ombi \
+--restart=always \
+-p 3579:3579 \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /etc/localtime:/etc/localtime:ro \
+-v /home/docker/ombi/config:/config \
+linuxserver/ombi
+
+sudo docker create \
+--name="headphones" \
+--restart=always \
+-p 8181:8181 \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /home/docker/headphones/config:/config \
+-v /media/dfwpfs01:/data/dfwpfs01 \
+-v /media/dfwpfs02:/data/dfwpfs02 \
+-v /media/2tb:/data/2tb \
+linuxserver/headphones
+
+sudo docker create \
+--name nzbget \
+--restart=always \
+-p 6789:6789 \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /home/docker/nzbget/config:/config \
+-v /media/dfwpfs01:/data/dfwpfs01 \
+-v /media/dfwpfs02:/data/dfwpfs02 \
+-v /media/2tb:/data/2tb \
+linuxserver/nzbget
+
+sudo docker create \
+--name=hydra \
+--restart=always \
+-p 5075:5075 \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /home/docker/nzbget/config:/config \
+-v /media/dfwpfs01:/data/dfwpfs01 \
+-v /media/dfwpfs02:/data/dfwpfs02 \
+-v /media/2tb:/data/2tb \
+linuxserver/hydra
+
+sudo docker create \
+--name=jackett \
+--restart=always \
+-p 9117:9117 \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /etc/localtime:/etc/localtime:ro \
+-v /home/docker/jackett/config:/config \
+-v /media/dfwpfs01:/data/dfwpfs01 \
+-v /media/dfwpfs02:/data/dfwpfs02 \
+-v /media/2tb:/data/2tb \
+linuxserver/jackett
+
+sudo docker create \
+--name=muximux \
+-p 5000:80 \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /home/docker/muximux/config:/config \
+linuxserver/muximux
+
+# Start the Dockers
+sudo docker start sonarr
+sudo docker start radarr
+sudo docker start deluge
+sudo docker start ombi
+sudo docker start headphones
+sudo docker start nzbget
+sudo docker start hydra
+sudo docker start jackett
+sudo docker start muximux
+
+######################################################################################
+# Congrats, that's it!
+######################################################################################

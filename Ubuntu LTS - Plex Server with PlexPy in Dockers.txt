@@ -1,0 +1,143 @@
+######################################################################################
+# These instructions are for installing Docker to containerize applications,
+# CIFS to mount a windows share, editing the FSTAB to mount the share
+# then installing the official PMS Plex docker and LinuxServer.io PlexPY docker
+# 
+# Use at your own risk, created by Alex Cherry (2017)
+# Intended for use with Docker Project's Docker Community Edition, Ubuntu LTS 16.04
+# 
+# Last Edited 26 SEPT 2017
+######################################################################################
+
+# Configure your network interface
+sudo nano /etc/network/interfaces
+
+# Update the apt package index
+sudo apt-get update
+
+# Install the linux-image-extra-* packages, which allow Docker to use the aufs storage drivers
+sudo apt-get install \
+  linux-image-extra-$(uname -r) \
+  linux-image-extra-virtual
+
+# Update the apt package index
+sudo apt-get update
+
+# Install packages to allow apt to use a repository over HTTPS
+sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    software-properties-common
+
+# Add Docker’s official GPG key
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# Verify that you now have the key with the fingerprint 9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88,
+# by searching for the last 8 characters of the fingerprint
+sudo apt-key fingerprint 0EBFCD88
+
+# set up the stable repository for AMD64 code
+sudo add-apt-repository \
+   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+   $(lsb_release -cs) \
+   stable"
+
+# Now update the apt package index, then install the latest docker-ce and cifs-utils
+sudo apt-get update
+sudo apt-get install docker-ce
+sudo apt-get install cifs-utils
+
+# Create your credentials file
+sudo nano /home/username/.smbcredentials
+
+# Enter your Windows username and password in the file by inserting the text
+
+username=msusername
+password=mspassword
+
+# CTRL-X to get out of NANO, follow prommpts to save
+
+# Create the directories in the /media directory to mount your Windows shares to
+# Note that you can create and name these whatever you want, and you should make as 
+# many as you need to mount all your shares
+sudo mkdir /media/server01
+sudo mkdir /media/server02
+
+# Edit the FSTAB file to mount your shares.
+sudo nano /etc/fstab
+
+# Insert these lines at the end of /etc/fstab
+# Note that you can edit 
+//server01/share /media/server01 cifs credentials=/home/username/.smbcredentials,iocharset=utf8,noperm,sec=ntlm 0 0 
+//server02/share /media/server02 cifs credentials=/home/username/.smbcredentials,iocharset=utf8,noperm,sec=ntlm 0 0 
+
+# CTRL-X to get out of NANO, follow prommpts to save
+
+# Mount the drives
+sudo mount -a
+
+# Test the mounts, assuming you got no errors
+cd /media/server01
+ls -l
+cd /media/server02
+ls -l
+
+#
+# SUPER IMPORTANT - IF YOU NEED TO FIX YOUR MOUNTS DO SO NOW - PLEX AND PLEXPY REQUIRE THEM TO WORK
+#
+
+# Now update the apt package index, check for any system upgrades, then restart the machine
+sudo apt-get update
+sudo apt-get upgrade
+sudo shutdown -r now
+
+# Copy from here down to upgrade all your dockers to the latest
+# 
+# Stop the Dockers
+sudo docker stop plex
+sudo docker stop plexpy
+
+# Delete the Dockers
+sudo docker rm plex
+sudo docker rm plexpy
+
+# After restart, have Docker download the Plex and PlexPy images
+sudo docker pull plexinc/pms-docker
+sudo docker pull linuxserver/plexpy
+
+# Create the actual Dockers
+# Note that you can actually change all the folders, the format is simple
+# /hostmachine/source/path:/path-inside-docker
+# You can add a :ro at the end of that to make it a read-only share
+
+sudo docker create \
+--name plex \
+--network=host \
+--restart=always \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /home/docker/plex/config:/config \
+-v /home/docker/transcode:/transcode \
+-v /tmp:/ram-transcode \
+-v /media/dfwpfs01:/data/dfwpfs01 \
+-v /media/dfwpfs02:/data/dfwpfs02 \
+plexinc/pms-docker
+
+sudo docker create \
+--name plexpy \
+-p 8181:8181 \
+--restart=always \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /home/docker/plexpy/config:/config \
+-v /home/docker/plex/logs:/logs:ro \
+linuxserver/plexpy
+
+# Start the Dockers
+sudo docker start plex
+sudo docker start plexpy
+
+# You should be able to browse now to http://server:32400/web for Plex and http://server:8181 for PlexPy
+# I strongly recommend configuring a base URL of "/plexpy" inside PlexPy for use with NGINX reverse proxy later
+# which will make the internal URL http://server:8181/plexpy, but the external http://domain.tld/plexpy

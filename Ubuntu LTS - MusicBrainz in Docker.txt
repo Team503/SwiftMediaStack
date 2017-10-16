@@ -1,0 +1,107 @@
+######################################################################################
+# These instructions are for installing Docker to containerize applications,
+# then installing the MusicBrainz Docker container provided by LinuxServer.IO
+#
+# These instructions assume that you are a novice Linux user, but NOT a novice
+# computer user, and that you have accepted all the defaults during the Ubuntu 
+# installation process.
+#
+# You must register here to recieve a musicbrainz code to allow you to recieve 
+# database updates, it is free. https://metabrainz.org/supporters/account-type
+#
+# The initial import and setup of the database can take quite a long time, dependant
+# on your download speed etc, be patient and don't restart the container before it's
+# complete.
+#
+# Use at your own risk, created by Alex Cherry (2017)
+# Intended for use with Docker Project's Docker Community Edition, Ubuntu LTS 16.04
+# 
+# Last Edited 27 SEPT 2017
+######################################################################################
+
+# Configure your network interface
+sudo nano /etc/network/interfaces
+
+# Restart for new network settings to take effect
+sudo shutdown -r now
+
+# Install OpenSSH-server so you can use PuTTy to connect
+sudo apt-get install openssh-server
+logout
+
+#Connect via PuTTy here
+
+# Update the apt package index
+sudo apt-get update
+
+# Install the linux-image-extra-* packages, which allow Docker to use the aufs 
+# storage drivers
+sudo apt-get install \
+  linux-image-extra-$(uname -r) \
+  linux-image-extra-virtual
+
+# Update the apt package index
+sudo apt-get update
+
+# Install packages to allow apt to use a repository over HTTPS
+sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    software-properties-common
+
+# Add Docker’s official GPG key
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# Verify that you now have the key with the fingerprint 9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88,
+# by searching for the last 8 characters of the fingerprint
+sudo apt-key fingerprint 0EBFCD88
+
+# set up the stable repository for AMD64 code
+sudo add-apt-repository \
+   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+   $(lsb_release -cs) \
+   stable"
+
+# Now update the apt package index, then install the latest docker-ce and cifs-utils
+sudo apt-get update
+sudo apt-get install docker-ce
+
+# Now update the apt package index, check for any system upgrades, then restart the machine
+sudo apt-get update
+sudo apt-get upgrade
+sudo shutdown -r now
+
+# After restart, have Docker download the Plex and PlexPy images
+sudo docker pull linuxserver/musicbrainz
+
+# Create the actual Docker
+# Note that you can actually change all the folders, the format is simple
+# /hostmachine/source/path:/path-inside-docker
+# You can add a :ro at the end of that to make it a read-only share
+
+sudo docker create \
+--name=musicbrainz \
+--restart=always \
+-p 5000:5000 \
+-e TZ="America\Chicago" \
+-e PGID=1001 -e PUID=1001 \
+-v /etc/localtime:/etc/localtime:ro \
+-v /home/docker/musicbrainz/config:/config \
+-v /media/dfwpfs01:/data/dfwpfs01 \
+-v /media/dfwpfs02:/data/dfwpfs02 \
+-e BRAINZCODE=AN0am3aNgxR3GR0hh6lBgKvfOW6nEm5FsxztPpzJ \
+-e WEBADDRESS=192.168.1.30 \
+linuxserver/musicbrainz
+
+# Start the Dockers
+sudo docker start musicbrainz
+
+######################################################################################
+# Congrats, that's it!
+#
+# Remember, the initial database sync can take effing FOREVER, so wait overnight!
+#
+# DO NOT GET IMPATIENT AND RESTART THE CONTAINER OR YOU'LL HAVE TO START FROM SCRATCH!
+#
+######################################################################################
